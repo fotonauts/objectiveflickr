@@ -17,13 +17,13 @@
 @property (nonatomic, retain, readwrite) id sessionInfo;
 @property (nonatomic, assign, readwrite) BOOL getMethod;
 @property (nonatomic, assign, readwrite) id<OFFlickrAPIRequestDelegate> delegate;
+@property (nonatomic, retain, readwrite) OFFlickrAPIRequest *flickrAPIRequest;
 
 @end
 
 @interface OFRequestQueue () <OFFlickrAPIRequestDelegate>
 
 @property (nonatomic, retain, readwrite) OFFlickrAPIContext *flickrAPIContext;
-@property (nonatomic, retain, readwrite) NSMutableArray *allFlickrAPIRequests;
 @property (nonatomic, retain, readwrite) NSMutableArray *availableFlickrAPIRequests;
 @property (nonatomic, retain, readwrite) NSMutableArray *waitingOperations;
 @property (nonatomic, retain, readwrite) NSMutableArray *runningOperations;
@@ -45,6 +45,12 @@
 
 - (void)dealloc
 {
+    for (OFFlickrAPIRequest *request in self.availableFlickrAPIRequests) {
+        request.delegate = nil;
+    }
+    for (OFRequestOperation *operation in self.runningOperations) {
+        operation.flickrAPIRequest.delegate = nil;
+    }
     self.flickrAPIContext = nil;
     self.availableFlickrAPIRequests = nil;
     self.waitingOperations = nil;
@@ -58,14 +64,13 @@
     
     result = [self.availableFlickrAPIRequests lastObject];
     if (result) {
+        [result retain];
         [self.availableFlickrAPIRequests removeLastObject];
-    } else if (self.allFlickrAPIRequests.count < self.parallelRequestCount){
+    } else if (self.availableFlickrAPIRequests.count + self.runningOperations.count < self.parallelRequestCount){
         result = [[OFFlickrAPIRequest alloc] initWithAPIContext:self.flickrAPIContext];
         result.delegate = self;
-        [self.allFlickrAPIRequests addObject:result];
-        [result release];
     }
-    return result;
+    return [result autorelease];
 }
 
 - (void)runNextOperation
@@ -87,6 +92,17 @@
             }
         }
     }
+}
+
+- (void)recycleFlickrAPIRequest:(OFFlickrAPIRequest *)flickrAPIRequest withOperation:(OFRequestOperation *)operation
+{
+    flickrAPIRequest.sessionInfo = nil;
+    if (self.availableFlickrAPIRequests.count + self.runningOperations.count < self.parallelRequestCount) {
+        [self.availableFlickrAPIRequests addObject:flickrAPIRequest];
+    }
+    operation.flickrAPIRequest = nil;
+    [self.runningOperations removeObject:operation];
+    [self runNextOperation];
 }
 
 - (void)callAPIMethodGet:(BOOL)get withMethodName:(NSString *)inMethodName arguments:(NSDictionary *)inArguments sessionInfo:(id)sessionInfo delegate:(id<OFFlickrAPIRequestDelegate>)delegate
@@ -117,27 +133,57 @@
 
 - (void)flickrAPIRequest:(OFFlickrAPIRequest *)inRequest didCompleteWithResponse:(NSDictionary *)inResponseDictionary
 {
+    OFRequestOperation *operation = inRequest.sessionInfo;
     
+    if (operation.delegate && [operation.delegate respondsToSelector:@selector(flickrAPIRequest:didCompleteWithResponse:)]) {
+        inRequest.sessionInfo = operation.sessionInfo;
+        [operation.delegate flickrAPIRequest:inRequest didCompleteWithResponse:inResponseDictionary];
+    }
+    [self recycleFlickrAPIRequest:inRequest withOperation:operation];
 }
 
 - (void)flickrAPIRequest:(OFFlickrAPIRequest *)inRequest didFailWithError:(NSError *)inError
 {
+    OFRequestOperation *operation = inRequest.sessionInfo;
     
+    if (operation.delegate && [operation.delegate respondsToSelector:@selector(flickrAPIRequest:didFailWithError:)]) {
+        inRequest.sessionInfo = operation.sessionInfo;
+        [operation.delegate flickrAPIRequest:inRequest didFailWithError:inError];
+    }
+    [self recycleFlickrAPIRequest:inRequest withOperation:operation];
 }
 
 - (void)flickrAPIRequest:(OFFlickrAPIRequest *)inRequest imageUploadSentBytes:(NSUInteger)inSentBytes totalBytes:(NSUInteger)inTotalBytes
 {
+    OFRequestOperation *operation = inRequest.sessionInfo;
     
+    if (operation.delegate && [operation.delegate respondsToSelector:@selector(flickrAPIRequest:imageUploadSentBytes:totalBytes:)]) {
+        inRequest.sessionInfo = operation.sessionInfo;
+        [operation.delegate flickrAPIRequest:inRequest imageUploadSentBytes:inSentBytes totalBytes:inTotalBytes];
+    }
+    [self recycleFlickrAPIRequest:inRequest withOperation:operation];
 }
 
 - (void)flickrAPIRequest:(OFFlickrAPIRequest *)inRequest didObtainOAuthRequestToken:(NSString *)inRequestToken secret:(NSString *)inSecret
 {
+    OFRequestOperation *operation = inRequest.sessionInfo;
     
+    if (operation.delegate && [operation.delegate respondsToSelector:@selector(flickrAPIRequest:didObtainOAuthRequestToken:secret:)]) {
+        inRequest.sessionInfo = operation.sessionInfo;
+        [operation.delegate flickrAPIRequest:inRequest didObtainOAuthRequestToken:inRequestToken secret:inSecret];
+    }
+    [self recycleFlickrAPIRequest:inRequest withOperation:operation];
 }
 
 - (void)flickrAPIRequest:(OFFlickrAPIRequest *)inRequest didObtainOAuthAccessToken:(NSString *)inAccessToken secret:(NSString *)inSecret userFullName:(NSString *)inFullName userName:(NSString *)inUserName userNSID:(NSString *)inNSID
 {
+    OFRequestOperation *operation = inRequest.sessionInfo;
     
+    if (operation.delegate && [operation.delegate respondsToSelector:@selector(flickrAPIRequest:didObtainOAuthAccessToken:secret:userFullName:userName:userNSID:)]) {
+        inRequest.sessionInfo = operation.sessionInfo;
+        [operation.delegate flickrAPIRequest:inRequest didObtainOAuthAccessToken:inAccessToken secret:inSecret userFullName:inFullName userName:inUserName userNSID:inNSID];
+    }
+    [self recycleFlickrAPIRequest:inRequest withOperation:operation];
 }
 
 @end
