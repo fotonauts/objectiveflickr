@@ -53,6 +53,8 @@ extern NSString *const OFFlickrDeletePermission;
     
     NSString *oauthToken;
     NSString *oauthTokenSecret;
+    
+    NSDictionary *defaultParameters;
 }
 - (id)initWithAPIKey:(NSString *)inKey sharedSecret:(NSString *)inSharedSecret;
 
@@ -80,6 +82,8 @@ extern NSString *const OFFlickrDeletePermission;
 
 @property (nonatomic, retain) NSString *OAuthToken;
 @property (nonatomic, retain) NSString *OAuthTokenSecret;
+
+@property (nonatomic, retain) NSDictionary *defaultParameters;
 #else
 
 - (void)setAuthToken:(NSString *)inAuthToken;
@@ -104,6 +108,8 @@ extern NSString *const OFFlickrDeletePermission;
 - (void)setOAuthTokenSecret:(NSString *)inTokenSecret;
 - (NSString *)OAuthTokenSecret;
 
+- (void)setDefaultParameters:(NSDictionary *)defaultParameters;
+- (NSDictionary *)defaultParameters;
 
 #endif
 @end
