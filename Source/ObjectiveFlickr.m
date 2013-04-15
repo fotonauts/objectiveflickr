@@ -736,9 +736,8 @@ static NSData *NSDataFromOAuthPreferredWebForm(NSDictionary *formDictionary)
     }
     else {
         NSError *jsonError = nil;
-        NSDictionary *responseDictionary = [NSJSONSerialization JSONObjectWithData:[request receivedData] options:0 error:&jsonError];
-        NSDictionary *rsp = [responseDictionary objectForKey:@"rsp"];
-        NSString *stat = [rsp objectForKey:@"stat"];
+        NSDictionary *responseDictionary = [NSJSONSerialization JSONObjectWithData:[request receivedData] options:NSJSONReadingMutableContainers | NSJSONReadingMutableLeaves error:&jsonError];
+        NSString *stat = [responseDictionary objectForKey:@"stat"];
       
         if (jsonError) {
             if ([delegate respondsToSelector:@selector(flickrAPIRequest:didFailWithError:)]) {
@@ -747,7 +746,7 @@ static NSData *NSDataFromOAuthPreferredWebForm(NSDictionary *formDictionary)
             return;
         } else if (![stat isEqualToString:@"ok"]) {
             // this also fails when (responseDictionary, rsp, stat) == nil, so it's a guranteed way of checking the result
-            NSDictionary *err = [rsp objectForKey:@"err"];
+            NSDictionary *err = [responseDictionary objectForKey:@"err"];
             NSString *code = [err objectForKey:@"code"];
             NSString *msg = [err objectForKey:@"msg"];
         
@@ -768,7 +767,7 @@ static NSData *NSDataFromOAuthPreferredWebForm(NSDictionary *formDictionary)
 
         [self cleanUpTempFile];
         if ([delegate respondsToSelector:@selector(flickrAPIRequest:didCompleteWithResponse:)]) {
-            [delegate flickrAPIRequest:self didCompleteWithResponse:rsp];
+            [delegate flickrAPIRequest:self didCompleteWithResponse:responseDictionary];
         }    
     }
 }
