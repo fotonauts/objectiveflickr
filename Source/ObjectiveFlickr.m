@@ -735,12 +735,18 @@ static NSData *NSDataFromOAuthPreferredWebForm(NSDictionary *formDictionary)
         }
     }
     else {
-        NSDictionary *responseDictionary = [OFXMLMapper dictionaryMappedFromXMLData:[request receivedData]];	
+        NSError *jsonError = nil;
+        NSDictionary *responseDictionary = [NSJSONSerialization JSONObjectWithData:[request receivedData] options:0 error:&jsonError];
         NSDictionary *rsp = [responseDictionary objectForKey:@"rsp"];
         NSString *stat = [rsp objectForKey:@"stat"];
-        
-        // this also fails when (responseDictionary, rsp, stat) == nil, so it's a guranteed way of checking the result
-        if (![stat isEqualToString:@"ok"]) {
+      
+        if (jsonError) {
+            if ([delegate respondsToSelector:@selector(flickrAPIRequest:didFailWithError:)]) {
+                [delegate flickrAPIRequest:self didFailWithError:jsonError];
+            }
+            return;
+        } else if (![stat isEqualToString:@"ok"]) {
+            // this also fails when (responseDictionary, rsp, stat) == nil, so it's a guranteed way of checking the result
             NSDictionary *err = [rsp objectForKey:@"err"];
             NSString *code = [err objectForKey:@"code"];
             NSString *msg = [err objectForKey:@"msg"];
