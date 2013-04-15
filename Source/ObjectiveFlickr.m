@@ -82,6 +82,8 @@ typedef unsigned int NSUInteger;
     [oauthToken release];
     [oauthTokenSecret release];
     
+    [defaultParameters release];
+    
     [super dealloc];
 }
 
@@ -96,6 +98,7 @@ typedef unsigned int NSUInteger;
 		photoWebPageSource = kDefaultFlickrPhotoWebPageSource;
 		authEndpoint = kDefaultFlickrAuthEndpoint;
         uploadEndpoint = kDefaultFlickrUploadEndpoint;
+        defaultParameters = [[NSMutableDictionary alloc] initWithObjectsAndKeys:@"json", @"format", @"1", @"nojsoncallback", nil];
     }
     return self;
 }
@@ -259,6 +262,18 @@ typedef unsigned int NSUInteger;
 - (NSString *)OAuthTokenSecret
 {
     return oauthTokenSecret;
+}
+
+- (void)setDefaultParameters:(NSDictionary *)new;
+{
+    NSDictionary *tmp = defaultParameters;
+    defaultParameters = [new copy];
+    [tmp release];    
+}
+
+- (NSDictionary *)defaultParameters
+{
+    return defaultParameters;
 }
 
 #if MAC_OS_X_VERSION_MAX_ALLOWED > MAC_OS_X_VERSION_10_4
@@ -482,7 +497,8 @@ typedef unsigned int NSUInteger;
     
     // combine the parameters 
 	NSMutableDictionary *newArgs = inArguments ? [NSMutableDictionary dictionaryWithDictionary:inArguments] : [NSMutableDictionary dictionary];
-	[newArgs setObject:inMethodName forKey:@"method"];	
+	[newArgs setObject:inMethodName forKey:@"method"];
+    [newArgs addEntriesFromDictionary:[context defaultParameters]];
 
     NSURL *requestURL = nil;
     if ([context OAuthToken] && [context OAuthTokenSecret]) {
@@ -531,6 +547,7 @@ static NSData *NSDataFromOAuthPreferredWebForm(NSDictionary *formDictionary)
     // combine the parameters 
 	NSMutableDictionary *newArgs = inArguments ? [NSMutableDictionary dictionaryWithDictionary:inArguments] : [NSMutableDictionary dictionary];
 	[newArgs setObject:inMethodName forKey:@"method"];	
+    [newArgs addEntriesFromDictionary:[context defaultParameters]];
     
     
     NSData *postData = nil;
