@@ -27,7 +27,6 @@
 
 #import "ObjectiveFlickr.h"
 #import "OFUtilities.h"
-#import "OFXMLMapper.h"
 
 NSString *const OFFlickrSmallSquareSize = @"s";
 NSString *const OFFlickrThumbnailSize = @"t";
@@ -166,7 +165,7 @@ typedef unsigned int NSUInteger;
 
 - (NSURL *)loginURLFromFrobDictionary:(NSDictionary *)inFrob requestedPermission:(NSString *)inPermission
 {
-	NSString *frob = [[inFrob objectForKey:@"frob"] objectForKey:OFXMLTextContentKey];
+	NSString *frob = [[inFrob objectForKey:@"frob"] objectForKey:@"_content"];
     NSDictionary *argDict = [frob length] ? [NSDictionary dictionaryWithObjectsAndKeys:frob, @"frob", inPermission, @"perms", nil] : [NSDictionary dictionaryWithObjectsAndKeys:inPermission, @"perms", nil];
 	NSString *URLString = [NSString stringWithFormat:@"%@?%@", authEndpoint, [self signedQueryFromArguments:argDict]];
 	return [NSURL URLWithString:URLString];

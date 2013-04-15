@@ -191,7 +191,7 @@ const NSTimeInterval kTryObtainAuthTokenInterval = 3.0;
     [_progressLabel setStringValue:@"API call succeeded"];
     
     if (inRequest.sessionInfo == kFrobRequest) {
-        _frob = [[inResponseDictionary valueForKeyPath:@"frob._text"] copy];
+        _frob = [[inResponseDictionary valueForKeyPath:@"frob._content"] copy];
         NSLog(@"%@: %@", kFrobRequest, _frob);
         
         NSURL *authURL = [_flickrContext loginURLFromFrobDictionary:inResponseDictionary requestedPermission:OFFlickrWritePermission];
@@ -203,7 +203,7 @@ const NSTimeInterval kTryObtainAuthTokenInterval = 3.0;
         [_progressLabel setStringValue:@"Waiting for user authentication..."];
     }
     else if (inRequest.sessionInfo == kTryObtainAuthToken) {
-        NSString *authToken = [inResponseDictionary valueForKeyPath:@"auth.token._text"];
+        NSString *authToken = [inResponseDictionary valueForKeyPath:@"auth.token._content"];
         NSLog(@"%@: %@", kTryObtainAuthToken, authToken);
         
         _flickrContext.authToken = authToken;
