@@ -9,7 +9,7 @@
 #import "OFRequestQueue.h"
 #import "ObjectiveFlickr.h"
 
-@interface OFRequestOperation : NSObject
+@interface OFRequestOperation ()
 
 @property (nonatomic, assign, readwrite) OFRequestQueue *requestQueue;
 @property (nonatomic, retain, readwrite) NSString *methodName;
@@ -21,12 +21,16 @@
 
 @end
 
-@interface OFRequestQueue () <OFFlickrAPIRequestDelegate>
+@interface OFRequestQueue ()
 
 @property (nonatomic, retain, readwrite) OFFlickrAPIContext *flickrAPIContext;
 @property (nonatomic, retain, readwrite) NSMutableArray *availableFlickrAPIRequests;
 @property (nonatomic, retain, readwrite) NSMutableArray *waitingOperations;
 @property (nonatomic, retain, readwrite) NSMutableArray *runningOperations;
+
+@end
+
+@interface OFRequestQueue (OFFlickrAPIRequestDelegate) <OFFlickrAPIRequestDelegate>
 
 @end
 
@@ -39,6 +43,7 @@
         self.availableFlickrAPIRequests = [NSMutableArray array];
         self.waitingOperations = [NSMutableArray array];
         self.runningOperations = [NSMutableArray array];
+        self.parallelRequestCount = 1;
     }
     return self;
 }
@@ -50,6 +55,7 @@
     }
     for (OFRequestOperation *operation in self.runningOperations) {
         operation.flickrAPIRequest.delegate = nil;
+        [operation.flickrAPIRequest cancel];
     }
     self.flickrAPIContext = nil;
     self.availableFlickrAPIRequests = nil;
@@ -60,11 +66,10 @@
 
 - (OFFlickrAPIRequest *)nextAvailableFlickrAPIRequest
 {
-    OFFlickrAPIRequest *result;
+    OFFlickrAPIRequest *result = nil;
     
-    result = [self.availableFlickrAPIRequests lastObject];
-    if (result) {
-        [result retain];
+    if (self.availableFlickrAPIRequests.count > 0) {
+        result = [[self.availableFlickrAPIRequests lastObject] retain];
         [self.availableFlickrAPIRequests removeLastObject];
     } else if (self.availableFlickrAPIRequests.count + self.runningOperations.count < self.parallelRequestCount){
         result = [[OFFlickrAPIRequest alloc] initWithAPIContext:self.flickrAPIContext];
@@ -80,15 +85,27 @@
         
         request = [self nextAvailableFlickrAPIRequest];
         if (request) {
-            OFRequestOperation *operation;
+            BOOL requestSent = NO;
             
-            operation = [self.waitingOperations objectAtIndex:0];
-            [self.runningOperations addObject:operation];
-            operation.sessionInfo = operation;
-            if (operation.getMethod) {
-                [request callAPIMethodWithGET:operation.methodName arguments:operation.arguments];
-            } else {
-                [request callAPIMethodWithPOST:operation.methodName arguments:operation.arguments];
+            while (!requestSent) {
+                OFRequestOperation *operation;
+                
+                operation = [self.waitingOperations objectAtIndex:0];
+                operation.flickrAPIRequest = request;
+                [self.runningOperations addObject:operation];
+                request.sessionInfo = operation;
+                if (operation.getMethod) {
+                    requestSent = [request callAPIMethodWithGET:operation.methodName arguments:operation.arguments];
+                } else {
+                    requestSent = [request callAPIMethodWithPOST:operation.methodName arguments:operation.arguments];
+                }
+                [self.waitingOperations removeObjectAtIndex:0];
+                if (!requestSent) {
+                    if (operation.delegate && [operation.delegate respondsToSelector:@selector(flickrAPIRequest:didFailWithError:)]) {
+                        request.sessionInfo = operation.sessionInfo;
+                        [operation.delegate flickrAPIRequest:request didFailWithError:nil];
+                    }
+                }
             }
         }
     }
@@ -97,7 +114,9 @@
 - (void)recycleFlickrAPIRequest:(OFFlickrAPIRequest *)flickrAPIRequest withOperation:(OFRequestOperation *)operation
 {
     flickrAPIRequest.sessionInfo = nil;
-    if (self.availableFlickrAPIRequests.count + self.runningOperations.count < self.parallelRequestCount) {
+    // the current request is still into the running operation (for the retain count)
+    // so we have to use <=
+    if (self.availableFlickrAPIRequests.count + self.runningOperations.count <= self.parallelRequestCount) {
         [self.availableFlickrAPIRequests addObject:flickrAPIRequest];
     }
     operation.flickrAPIRequest = nil;
@@ -105,7 +124,7 @@
     [self runNextOperation];
 }
 
-- (void)callAPIMethodGet:(BOOL)get withMethodName:(NSString *)inMethodName arguments:(NSDictionary *)inArguments sessionInfo:(id)sessionInfo delegate:(id<OFFlickrAPIRequestDelegate>)delegate
+- (OFRequestOperation *)callAPIMethodGet:(BOOL)get withMethodName:(NSString *)inMethodName arguments:(NSDictionary *)inArguments sessionInfo:(id)sessionInfo delegate:(id<OFFlickrAPIRequestDelegate>)delegate
 {
     OFRequestOperation *operation;
     
@@ -119,17 +138,22 @@
     [self.waitingOperations addObject:operation];
     [operation release];
     [self runNextOperation];
+    return operation;
 }
 
-- (void)callAPIMethodWithGET:(NSString *)inMethodName arguments:(NSDictionary *)inArguments sessionInfo:(id)sessionInfo delegate:(id<OFFlickrAPIRequestDelegate>)delegate
+- (OFRequestOperation *)callAPIMethodWithGET:(NSString *)inMethodName arguments:(NSDictionary *)inArguments sessionInfo:(id)sessionInfo delegate:(id<OFFlickrAPIRequestDelegate>)delegate
 {
-    [self callAPIMethodGet:YES withMethodName:inMethodName arguments:inArguments sessionInfo:sessionInfo delegate:delegate];
+    return [self callAPIMethodGet:YES withMethodName:inMethodName arguments:inArguments sessionInfo:sessionInfo delegate:delegate];
 }
 
-- (void)callAPIMethodWithPOST:(NSString *)inMethodName arguments:(NSDictionary *)inArguments sessionInfo:(id)sessionInfo delegate:(id<OFFlickrAPIRequestDelegate>)delegate
+- (OFRequestOperation *)callAPIMethodWithPOST:(NSString *)inMethodName arguments:(NSDictionary *)inArguments sessionInfo:(id)sessionInfo delegate:(id<OFFlickrAPIRequestDelegate>)delegate
 {
-    [self callAPIMethodGet:NO withMethodName:inMethodName arguments:inArguments sessionInfo:sessionInfo delegate:delegate];
+    return [self callAPIMethodGet:NO withMethodName:inMethodName arguments:inArguments sessionInfo:sessionInfo delegate:delegate];
 }
+
+@end
+
+@implementation OFRequestQueue (OFFlickrAPIRequestDelegate)
 
 - (void)flickrAPIRequest:(OFFlickrAPIRequest *)inRequest didCompleteWithResponse:(NSDictionary *)inResponseDictionary
 {
@@ -196,6 +220,11 @@
     self.arguments = nil;
     self.sessionInfo = nil;
     [super dealloc];
+}
+
+- (void)cancel
+{
+    NSAssert(NO, @"not implemented yet");
 }
 
 @end

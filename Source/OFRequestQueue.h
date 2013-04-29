@@ -11,15 +11,22 @@
 @class OFFlickrAPIContext;
 @protocol OFFlickrAPIRequestDelegate;
 
+@interface OFRequestOperation : NSObject
+
+- (void)cancel;
+
+@end
+
 @interface OFRequestQueue : NSObject
 {
-    
 }
 
 @property (nonatomic, retain, readonly) OFFlickrAPIContext *flickrAPIContext;
 @property (nonatomic, assign, readwrite) NSUInteger parallelRequestCount;
 
-- (void)callAPIMethodWithGET:(NSString *)inMethodName arguments:(NSDictionary *)inArguments sessionInfo:(id)sessionInfo delegate:(id<OFFlickrAPIRequestDelegate>)delegate;
-- (void)callAPIMethodWithPOST:(NSString *)inMethodName arguments:(NSDictionary *)inArguments sessionInfo:(id)sessionInfo delegate:(id<OFFlickrAPIRequestDelegate>)delegate;
+- (id)initWithFlickrAPIContext:(OFFlickrAPIContext *)flickrAPIContext;
+
+- (OFRequestOperation *)callAPIMethodWithGET:(NSString *)inMethodName arguments:(NSDictionary *)inArguments sessionInfo:(id)sessionInfo delegate:(id<OFFlickrAPIRequestDelegate>)delegate;
+- (OFRequestOperation *)callAPIMethodWithPOST:(NSString *)inMethodName arguments:(NSDictionary *)inArguments sessionInfo:(id)sessionInfo delegate:(id<OFFlickrAPIRequestDelegate>)delegate;
 
 @end
