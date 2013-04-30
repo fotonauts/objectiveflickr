@@ -43,7 +43,7 @@
         self.availableFlickrAPIRequests = [NSMutableArray array];
         self.waitingOperations = [NSMutableArray array];
         self.runningOperations = [NSMutableArray array];
-        self.parallelRequestCount = 1;
+        self.parallelRequestCount = 5;
     }
     return self;
 }
