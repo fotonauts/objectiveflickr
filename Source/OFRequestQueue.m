@@ -111,13 +111,14 @@
     }
 }
 
-- (void)recycleFlickrAPIRequest:(OFFlickrAPIRequest *)flickrAPIRequest withOperation:(OFRequestOperation *)operation
+- (void)recycleFlickrAPIRequestForOperation:(OFRequestOperation *)operation
 {
-    flickrAPIRequest.sessionInfo = nil;
+    NSAssert(operation.flickrAPIRequest !=  nil, @"operation should have a flickr api request %@", operation);
+    operation.flickrAPIRequest.sessionInfo = nil;
     // the current request is still into the running operation (for the retain count)
     // so we have to use <=
     if (self.availableFlickrAPIRequests.count + self.runningOperations.count <= self.parallelRequestCount) {
-        [self.availableFlickrAPIRequests addObject:flickrAPIRequest];
+        [self.availableFlickrAPIRequests addObject:operation.flickrAPIRequest];
     }
     operation.flickrAPIRequest = nil;
     [self.runningOperations removeObject:operation];
@@ -151,6 +152,17 @@
     return [self callAPIMethodGet:NO withMethodName:inMethodName arguments:inArguments sessionInfo:sessionInfo delegate:delegate];
 }
 
+- (void)cancelAllOperations
+{
+    for (OFRequestOperation *operation in self.waitingOperations) {
+        [operation cancel];
+    }
+    [self.waitingOperations removeAllObjects];
+    for (OFRequestOperation *operation in self.runningOperations.copy) {
+        [operation cancel];
+    }
+}
+
 @end
 
 @implementation OFRequestQueue (OFFlickrAPIRequestDelegate)
@@ -159,55 +171,65 @@
 {
     OFRequestOperation *operation = inRequest.sessionInfo;
     
+    NSAssert(operation != nil, @"should have an operation");
+    NSAssert([operation isKindOfClass:[OFRequestOperation class]], @"wrong type %@", operation);
     if (operation.delegate && [operation.delegate respondsToSelector:@selector(flickrAPIRequest:didCompleteWithResponse:)]) {
         inRequest.sessionInfo = operation.sessionInfo;
         [operation.delegate flickrAPIRequest:inRequest didCompleteWithResponse:inResponseDictionary];
     }
-    [self recycleFlickrAPIRequest:inRequest withOperation:operation];
+    [self recycleFlickrAPIRequestForOperation:operation];
 }
 
 - (void)flickrAPIRequest:(OFFlickrAPIRequest *)inRequest didFailWithError:(NSError *)inError
 {
     OFRequestOperation *operation = inRequest.sessionInfo;
     
+    NSAssert(operation != nil, @"should have an operation");
+    NSAssert([operation isKindOfClass:[OFRequestOperation class]], @"wrong type %@", operation);
     if (operation.delegate && [operation.delegate respondsToSelector:@selector(flickrAPIRequest:didFailWithError:)]) {
         inRequest.sessionInfo = operation.sessionInfo;
         [operation.delegate flickrAPIRequest:inRequest didFailWithError:inError];
     }
-    [self recycleFlickrAPIRequest:inRequest withOperation:operation];
+    [self recycleFlickrAPIRequestForOperation:operation];
 }
 
 - (void)flickrAPIRequest:(OFFlickrAPIRequest *)inRequest imageUploadSentBytes:(NSUInteger)inSentBytes totalBytes:(NSUInteger)inTotalBytes
 {
     OFRequestOperation *operation = inRequest.sessionInfo;
     
+    NSAssert(operation != nil, @"should have an operation");
+    NSAssert([operation isKindOfClass:[OFRequestOperation class]], @"wrong type %@", operation);
     if (operation.delegate && [operation.delegate respondsToSelector:@selector(flickrAPIRequest:imageUploadSentBytes:totalBytes:)]) {
         inRequest.sessionInfo = operation.sessionInfo;
         [operation.delegate flickrAPIRequest:inRequest imageUploadSentBytes:inSentBytes totalBytes:inTotalBytes];
     }
-    [self recycleFlickrAPIRequest:inRequest withOperation:operation];
+    [self recycleFlickrAPIRequestForOperation:operation];
 }
 
 - (void)flickrAPIRequest:(OFFlickrAPIRequest *)inRequest didObtainOAuthRequestToken:(NSString *)inRequestToken secret:(NSString *)inSecret
 {
     OFRequestOperation *operation = inRequest.sessionInfo;
     
+    NSAssert(operation != nil, @"should have an operation");
+    NSAssert([operation isKindOfClass:[OFRequestOperation class]], @"wrong type %@", operation);
     if (operation.delegate && [operation.delegate respondsToSelector:@selector(flickrAPIRequest:didObtainOAuthRequestToken:secret:)]) {
         inRequest.sessionInfo = operation.sessionInfo;
         [operation.delegate flickrAPIRequest:inRequest didObtainOAuthRequestToken:inRequestToken secret:inSecret];
     }
-    [self recycleFlickrAPIRequest:inRequest withOperation:operation];
+    [self recycleFlickrAPIRequestForOperation:operation];
 }
 
 - (void)flickrAPIRequest:(OFFlickrAPIRequest *)inRequest didObtainOAuthAccessToken:(NSString *)inAccessToken secret:(NSString *)inSecret userFullName:(NSString *)inFullName userName:(NSString *)inUserName userNSID:(NSString *)inNSID
 {
     OFRequestOperation *operation = inRequest.sessionInfo;
     
+    NSAssert(operation != nil, @"should have an operation");
+    NSAssert([operation isKindOfClass:[OFRequestOperation class]], @"wrong type %@", operation);
     if (operation.delegate && [operation.delegate respondsToSelector:@selector(flickrAPIRequest:didObtainOAuthAccessToken:secret:userFullName:userName:userNSID:)]) {
         inRequest.sessionInfo = operation.sessionInfo;
         [operation.delegate flickrAPIRequest:inRequest didObtainOAuthAccessToken:inAccessToken secret:inSecret userFullName:inFullName userName:inUserName userNSID:inNSID];
     }
-    [self recycleFlickrAPIRequest:inRequest withOperation:operation];
+    [self recycleFlickrAPIRequestForOperation:operation];
 }
 
 @end
@@ -224,7 +246,10 @@
 
 - (void)cancel
 {
-    NSAssert(NO, @"not implemented yet");
+    if (self.flickrAPIRequest) {
+        [self.flickrAPIRequest cancel];
+        [self.requestQueue recycleFlickrAPIRequestForOperation:self];
+    }
 }
 
 @end
