@@ -111,6 +111,11 @@
     }
 }
 
+- (void)removeFromWaitingQueue:(OFRequestOperation *)operation
+{
+    [self.waitingOperations removeObject:operation];
+}
+
 - (void)recycleFlickrAPIRequestForOperation:(OFRequestOperation *)operation
 {
     NSAssert(operation.flickrAPIRequest !=  nil, @"operation should have a flickr api request %@", operation);
@@ -247,8 +252,12 @@
 - (void)cancel
 {
     if (self.flickrAPIRequest) {
+        // is already running
         [self.flickrAPIRequest cancel];
         [self.requestQueue recycleFlickrAPIRequestForOperation:self];
+    } else {
+        // is in the waiting queue
+        [self.requestQueue removeFromWaitingQueue:self];
     }
 }
 
