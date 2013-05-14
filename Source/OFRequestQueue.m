@@ -18,6 +18,7 @@
 @property (nonatomic, assign, readwrite) BOOL getMethod;
 @property (nonatomic, assign, readwrite) id<OFFlickrAPIRequestDelegate> delegate;
 @property (nonatomic, retain, readwrite) OFFlickrAPIRequest *flickrAPIRequest;
+@property (nonatomic, assign, readwrite) BOOL hasBeenCanceled;
 
 @end
 
@@ -43,7 +44,7 @@
         self.availableFlickrAPIRequests = [NSMutableArray array];
         self.waitingOperations = [NSMutableArray array];
         self.runningOperations = [NSMutableArray array];
-        self.parallelRequestCount = 5;
+        self.parallelRequestCount = 10;
     }
     return self;
 }
@@ -182,7 +183,11 @@
         inRequest.sessionInfo = operation.sessionInfo;
         [operation.delegate flickrAPIRequest:inRequest didCompleteWithResponse:inResponseDictionary];
     }
-    [self recycleFlickrAPIRequestForOperation:operation];
+    if (!operation.hasBeenCanceled) {
+        // this has to be checked in case the delegate canceled the current operation while beingn called
+        // (this could happened if the delegate destroys itslef while being called and cancel the operation in the delegate
+        [self recycleFlickrAPIRequestForOperation:operation];
+    }
 }
 
 - (void)flickrAPIRequest:(OFFlickrAPIRequest *)inRequest didFailWithError:(NSError *)inError
@@ -195,7 +200,11 @@
         inRequest.sessionInfo = operation.sessionInfo;
         [operation.delegate flickrAPIRequest:inRequest didFailWithError:inError];
     }
-    [self recycleFlickrAPIRequestForOperation:operation];
+    if (!operation.hasBeenCanceled) {
+        // this has to be checked in case the delegate canceled the current operation while beingn called
+        // (this could happened if the delegate destroys itslef while being called and cancel the operation in the delegate
+        [self recycleFlickrAPIRequestForOperation:operation];
+    }
 }
 
 - (void)flickrAPIRequest:(OFFlickrAPIRequest *)inRequest imageUploadSentBytes:(NSUInteger)inSentBytes totalBytes:(NSUInteger)inTotalBytes
@@ -208,7 +217,11 @@
         inRequest.sessionInfo = operation.sessionInfo;
         [operation.delegate flickrAPIRequest:inRequest imageUploadSentBytes:inSentBytes totalBytes:inTotalBytes];
     }
-    [self recycleFlickrAPIRequestForOperation:operation];
+    if (!operation.hasBeenCanceled) {
+        // this has to be checked in case the delegate canceled the current operation while beingn called
+        // (this could happened if the delegate destroys itslef while being called and cancel the operation in the delegate
+        [self recycleFlickrAPIRequestForOperation:operation];
+    }
 }
 
 - (void)flickrAPIRequest:(OFFlickrAPIRequest *)inRequest didObtainOAuthRequestToken:(NSString *)inRequestToken secret:(NSString *)inSecret
@@ -221,7 +234,11 @@
         inRequest.sessionInfo = operation.sessionInfo;
         [operation.delegate flickrAPIRequest:inRequest didObtainOAuthRequestToken:inRequestToken secret:inSecret];
     }
-    [self recycleFlickrAPIRequestForOperation:operation];
+    if (!operation.hasBeenCanceled) {
+        // this has to be checked in case the delegate canceled the current operation while beingn called
+        // (this could happened if the delegate destroys itslef while being called and cancel the operation in the delegate
+        [self recycleFlickrAPIRequestForOperation:operation];
+    }
 }
 
 - (void)flickrAPIRequest:(OFFlickrAPIRequest *)inRequest didObtainOAuthAccessToken:(NSString *)inAccessToken secret:(NSString *)inSecret userFullName:(NSString *)inFullName userName:(NSString *)inUserName userNSID:(NSString *)inNSID
@@ -234,7 +251,11 @@
         inRequest.sessionInfo = operation.sessionInfo;
         [operation.delegate flickrAPIRequest:inRequest didObtainOAuthAccessToken:inAccessToken secret:inSecret userFullName:inFullName userName:inUserName userNSID:inNSID];
     }
-    [self recycleFlickrAPIRequestForOperation:operation];
+    if (!operation.hasBeenCanceled) {
+        // this has to be checked in case the delegate canceled the current operation while beingn called
+        // (this could happened if the delegate destroys itslef while being called and cancel the operation in the delegate
+        [self recycleFlickrAPIRequestForOperation:operation];
+    }
 }
 
 @end
@@ -251,13 +272,16 @@
 
 - (void)cancel
 {
-    if (self.flickrAPIRequest) {
-        // is already running
-        [self.flickrAPIRequest cancel];
-        [self.requestQueue recycleFlickrAPIRequestForOperation:self];
-    } else {
-        // is in the waiting queue
-        [self.requestQueue removeFromWaitingQueue:self];
+    if (!self.hasBeenCanceled) {
+        if (self.flickrAPIRequest) {
+            // is already running
+            [self.flickrAPIRequest cancel];
+            [self.requestQueue recycleFlickrAPIRequestForOperation:self];
+        } else {
+            // is in the waiting queue
+            [self.requestQueue removeFromWaitingQueue:self];
+        }
+        self.hasBeenCanceled = YES;
     }
 }
 
