@@ -9,9 +9,12 @@
 #import <Foundation/Foundation.h>
 
 @class OFFlickrAPIContext;
+@class OFRequestQueue;
 @protocol OFFlickrAPIRequestDelegate;
 
 @interface OFRequestOperation : NSObject
+@property (nonatomic, assign, readwrite) id<OFFlickrAPIRequestDelegate> delegate;
+@property (nonatomic, assign, readonly) OFRequestQueue *requestQueue;
 
 - (void)cancel;
 

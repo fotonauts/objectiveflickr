@@ -16,7 +16,6 @@
 @property (nonatomic, retain, readwrite) NSDictionary *arguments;
 @property (nonatomic, retain, readwrite) id sessionInfo;
 @property (nonatomic, assign, readwrite) BOOL getMethod;
-@property (nonatomic, assign, readwrite) id<OFFlickrAPIRequestDelegate> delegate;
 @property (nonatomic, retain, readwrite) OFFlickrAPIRequest *flickrAPIRequest;
 @property (nonatomic, assign, readwrite) BOOL hasBeenCanceled;
 
@@ -273,6 +272,7 @@
 - (void)cancel
 {
     if (!self.hasBeenCanceled) {
+        self.delegate = nil;
         if (self.flickrAPIRequest) {
             // is already running
             [self.flickrAPIRequest cancel];
