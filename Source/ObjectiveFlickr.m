@@ -695,7 +695,7 @@ static NSData *NSDataFromOAuthPreferredWebForm(NSDictionary *formDictionary)
     if ([request sessionInfo] == OFFetchOAuthRequestTokenSession) {
         [request setSessionInfo:nil];
         
-        NSString *response = [[[NSString alloc] initWithData:[request receivedData] encoding:NSUTF8StringEncoding] autorelease];
+        NSString *response = [[NSString alloc] initWithData:[request receivedData] encoding:NSUTF8StringEncoding];
 
         NSDictionary *params = OFExtractURLQueryParameter(response);
         NSString *oat = [params objectForKey:@"oauth_token"];
@@ -710,11 +710,12 @@ static NSData *NSDataFromOAuthPreferredWebForm(NSDictionary *formDictionary)
             
             [delegate flickrAPIRequest:self didObtainOAuthRequestToken:oat secret:oats];
         }
+        [response release];
     }
     else if ([request sessionInfo] == OFFetchOAuthAccessTokenSession) {
         [request setSessionInfo:nil];
 
-        NSString *response = [[[NSString alloc] initWithData:[request receivedData] encoding:NSUTF8StringEncoding] autorelease];
+        NSString *response = [[NSString alloc] initWithData:[request receivedData] encoding:NSUTF8StringEncoding];
         NSDictionary *params = OFExtractURLQueryParameter(response);
         
         NSString *fn = [params objectForKey:@"fullname"];
@@ -733,6 +734,7 @@ static NSData *NSDataFromOAuthPreferredWebForm(NSDictionary *formDictionary)
             
             [delegate flickrAPIRequest:self didObtainOAuthAccessToken:oat secret:oats userFullName:fn userName:un userNSID:nsid];
         }
+        [response release];
     }
     else {
         NSError *jsonError = nil;
