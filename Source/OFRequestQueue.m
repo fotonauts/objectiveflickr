@@ -159,13 +159,20 @@
 
 - (void)cancelAllOperations
 {
-    for (OFRequestOperation *operation in self.waitingOperations) {
+    NSArray *copyArray;
+    
+    copyArray = self.waitingOperations.copy;
+    for (OFRequestOperation *operation in copyArray) {
         [operation cancel];
     }
     [self.waitingOperations removeAllObjects];
-    for (OFRequestOperation *operation in self.runningOperations.copy) {
+    [copyArray release];
+    
+    copyArray = self.runningOperations.copy;
+    for (OFRequestOperation *operation in copyArray) {
         [operation cancel];
     }
+    [copyArray release];
 }
 
 @end
